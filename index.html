@@ -89,6 +89,20 @@
 
   <script>
   /*-------------------------------------------------
+   * Placeholder dinámico según tipo de invitación
+   *------------------------------------------------*/
+  const tipoSel = document.getElementById('tipoInvitacion');
+  const nombreInput = document.getElementById('nombre');
+
+  tipoSel.addEventListener('change', ({ target }) => {
+    if (target.value === 'varios') {
+      nombreInput.placeholder = 'Nombres de los cumpleañeros';
+    } else {
+      nombreInput.placeholder = 'Nombre del cumpleañero';
+    }
+  });
+
+  /*-------------------------------------------------
    * Configuraciones iniciales
    *------------------------------------------------*/
   // Bloquear fechas pasadas
@@ -111,7 +125,6 @@
   horas.forEach(h=>desdeSel.add(new Option(h,h)));
 
   function strMin(hhmm){const [h,m]=hhmm.split(':').map(Number);return h*60+m;}
-  function minStr(min){return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;}
 
   desdeSel.addEventListener('change',()=>{
     hastaSel.innerHTML='';
@@ -129,8 +142,8 @@
    * Generar invitación
    *------------------------------------------------*/
   async function generarInvitacion(){
-    const tipo=document.getElementById('tipoInvitacion').value;
-    const nombre=document.getElementById('nombre').value.trim().toUpperCase();
+    const tipo=tipoSel.value;
+    const nombre=nombreInput.value.trim().toUpperCase();
     const fecha=document.getElementById('fecha').value;
     const desde=desdeSel.value;
     const hasta=hastaSel.value;
