@@ -4,68 +4,60 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Invitación Cumpleaños</title>
+
+  <!-- Librerías -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #202020;
-      text-align: center;
-      padding: 40px;
+    body{
+      font-family:'Segoe UI',sans-serif;
+      background:#202020;
+      color:#fff;
+      text-align:center;
+      padding:40px
     }
-    h2 { color: #1ba3dd; }
-    .drop-zone, .form {
-      margin: 20px auto;
-      max-width: 400px;
-      padding: 20px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    h2{color:#1ba3dd}
+    .card{
+      margin:20px auto;
+      max-width:400px;
+      padding:20px;
+      background:#ffffff;
+      color:#000;
+      border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,.1)
     }
-    input, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-      box-sizing: border-box;
+    input,select,button{
+      width:100%;
+      padding:10px;
+      margin-top:10px;
+      border-radius:5px;
+      border:1px solid #ccc;
+      font-size:16px;
+      box-sizing:border-box
     }
-    button {
-      background-color: #007bff;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
+    button{
+      background:#007bff;
+      color:#fff;
+      font-weight:bold;
+      cursor:pointer
     }
-    button:hover {
-      background-color: #0056b3;
+    button:hover{background:#0056b3}
+    #loader{display:none;margin-top:20px}
+    #previewContainer{position:relative;display:inline-block;margin-top:30px}
+    canvas{border:1px solid #ccc}
+    #downloadBtn{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      background:#0f000573;
+      border:none;color:#fff;
+      padding:12px 24px;font-size:16px;font-weight:bold;border-radius:50px;
+      cursor:pointer;display:none;
+      animation:heartbeat 1.5s infinite
     }
-    #loader { display: none; margin-top: 20px; color: white; }
-    #previewContainer {
-      position: relative;
-      display: inline-block;
-      margin-top: 30px;
-    }
-    canvas { border: 1px solid #ccc; }
-    #downloadBtn {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: #0f000573;
-      border: none;
-      color: white;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 50px;
-      cursor: pointer;
-      display: none;
-      animation: heartbeat 1.5s infinite;
-    }
-    @keyframes heartbeat {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); }
-      50% { transform: translate(-50%, -50%) scale(1.1); }
+    @keyframes heartbeat{
+      0%,100%{transform:translate(-50%,-50%) scale(1)}
+      50%{transform:translate(-50%,-50%) scale(1.1)}
     }
   </style>
 </head>
@@ -73,252 +65,178 @@
 
   <h2>Invitación de Cumpleaños</h2>
 
-  <div class="drop-zone" onclick="document.getElementById('pdfBase').click()" id="dropZone">
-    <p id="dropText">Subí el PDF base</p>
-    <input type="file" id="pdfBase" accept="application/pdf" hidden>
-  </div>
+  <!-- Formulario -->
+  <div class="card" id="formulario">
+    <select id="tipoInvitacion" required>
+      <option value="" disabled selected>Tipo de invitación</option>
+      <option value="uno">Sólo para el cumpleañero</option>
+      <option value="varios">Para varios invitados</option>
+    </select>
 
-  <div class="form" id="formulario">
     <input type="text" id="nombre" placeholder="Nombre del cumpleañero" required />
     <input type="date" id="fecha" required />
     <select id="desde" required></select>
     <select id="hasta" required></select>
-    <button onclick="generarGiftCard()">Generar invitación</button>
+
+    <button onclick="generarInvitacion()">Generar invitación</button>
   </div>
 
-  <div id="loader">Generando invitación...⏳</div>
+  <div id="loader">Generando invitación… ⏳</div>
 
   <div id="previewContainer">
     <button id="downloadBtn">Descargar Invitación</button>
   </div>
 
   <script>
-    let archivoPDF = null;
-    let blobGenerado = null;
+  /*-------------------------------------------------
+   * Configuraciones iniciales
+   *------------------------------------------------*/
+  // Bloquear fechas pasadas
+  document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
 
-    // Fecha mínima hoy
-    const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha').min = hoy;
+  // Generar opciones de horario (cada 5 min) y lógica “hasta” ≥ “desde” + 1 h
+  const desdeSel = document.getElementById('desde');
+  const hastaSel = document.getElementById('hasta');
 
-    // Función para generar opciones de select con intervalos de 5 minutos
-    function generarOpcionesHorario() {
-      const opciones = [];
-      // Horarios entre 09:00 y 23:00 (excluido)
-      for (let h = 9; h < 23; h++) {
-        for (let m = 0; m < 60; m += 5) {
-          const horaStr = String(h).padStart(2, '0');
-          const minStr = String(m).padStart(2, '0');
-          opciones.push(`${horaStr}:${minStr}`);
-        }
+  function genOpcionesHorario(){
+    const opts=[];
+    for(let h=9;h<23;h++){
+      for(let m=0;m<60;m+=5){
+        opts.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
       }
-      return opciones;
+    }
+    return opts;
+  }
+  const horas = genOpcionesHorario();
+  horas.forEach(h=>desdeSel.add(new Option(h,h)));
+
+  function strMin(hhmm){const [h,m]=hhmm.split(':').map(Number);return h*60+m;}
+  function minStr(min){return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;}
+
+  desdeSel.addEventListener('change',()=>{
+    hastaSel.innerHTML='';
+    const minDesde=strMin(desdeSel.value)+60; // +1 h
+    horas.forEach(h=>{
+      if(strMin(h)>=minDesde) hastaSel.add(new Option(h,h));
+    });
+    if(!hastaSel.options.length){
+      const o=new Option('Sin horarios válidos','');o.disabled=o.selected=true;hastaSel.add(o);
+    }
+  });
+  desdeSel.selectedIndex=0;desdeSel.dispatchEvent(new Event('change'));
+
+  /*-------------------------------------------------
+   * Generar invitación
+   *------------------------------------------------*/
+  async function generarInvitacion(){
+    const tipo=document.getElementById('tipoInvitacion').value;
+    const nombre=document.getElementById('nombre').value.trim().toUpperCase();
+    const fecha=document.getElementById('fecha').value;
+    const desde=desdeSel.value;
+    const hasta=hastaSel.value;
+
+    if(!tipo||!nombre||!fecha||!desde||!hasta){
+      alert('Completá todos los campos.');return;
     }
 
-    const desdeSelect = document.getElementById('desde');
-    const hastaSelect = document.getElementById('hasta');
-    const opcionesHorario = generarOpcionesHorario();
+    // URLs de PDFs base RAW (raw.githubusercontent.com)
+    const urls={
+      uno:'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_uno.pdf',
+      varios:'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_varios.pdf'
+    };
+    const pdfUrl=urls[tipo];
 
-    // Cargar opciones iniciales en 'desde'
-    opcionesHorario.forEach(hora => {
-      desdeSelect.add(new Option(hora, hora));
-    });
+    document.getElementById('loader').style.display='block';
+    document.getElementById('downloadBtn').style.display='none';
+    document.getElementById('previewContainer').innerHTML='<button id="downloadBtn">Descargar Invitación</button>';
 
-    // Convierte "HH:MM" a minutos totales desde medianoche
-    function horaAMinutos(hora) {
-      const [h, m] = hora.split(':').map(Number);
-      return h * 60 + m;
-    }
+    try{
+      const res=await fetch(pdfUrl);
+      const basePdfBytes=new Uint8Array(await res.arrayBuffer());
 
-    // Convierte minutos totales desde medianoche a "HH:MM"
-    function minutosAHora(minutos) {
-      const h = Math.floor(minutos / 60);
-      const m = minutos % 60;
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
+      /* ---------- Modificar PDF ---------- */
+      const pdfDoc=await PDFLib.PDFDocument.load(basePdfBytes);
+      const [page]=pdfDoc.getPages();
+      const {width,height}=page.getSize();
+      const font=await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
+      const naranja=PDFLib.rgb(1,0.64,0);
 
-    // Al cambiar 'desde', actualizar 'hasta' con opciones desde + 1 hora mínimo
-    desdeSelect.addEventListener('change', () => {
-      const seleccionDesde = desdeSelect.value;
-      hastaSelect.innerHTML = '';
-      const indexDesde = opcionesHorario.indexOf(seleccionDesde);
-      if (indexDesde === -1) return;
-
-      // Minutos del horario seleccionado + 60 para mínima duración 1 hora
-      const minutosDesde = horaAMinutos(seleccionDesde);
-      const minutosMinHasta = minutosDesde + 60;
-
-      // Agregar opciones desde minutosMinHasta hacia adelante
-      opcionesHorario.forEach(hora => {
-        const minutosHora = horaAMinutos(hora);
-        if (minutosHora >= minutosMinHasta) {
-          hastaSelect.add(new Option(hora, hora));
-        }
-      });
-
-      // Si no hay opciones disponibles (ejemplo elegir la última hora cerca de las 22:00), mostrar mensaje
-      if (hastaSelect.options.length === 0) {
-        const option = new Option("No hay opciones disponibles", "");
-        option.disabled = true;
-        option.selected = true;
-        hastaSelect.add(option);
-      }
-    });
-
-    // Inicializar selects con valores y opciones
-    desdeSelect.selectedIndex = 0;
-    desdeSelect.dispatchEvent(new Event('change'));
-
-    document.getElementById('pdfBase').addEventListener('change', function (e) {
-      archivoPDF = e.target.files[0];
-      document.getElementById('dropText').textContent = `PDF cargado: ${archivoPDF.name}`;
-    });
-
-    async function generarGiftCard() {
-      const nombre = document.getElementById('nombre').value.trim().toUpperCase();
-      const fecha = document.getElementById('fecha').value;
-      const desde = document.getElementById('desde').value;
-      const hasta = document.getElementById('hasta').value;
-
-      if (!archivoPDF || !nombre || !fecha || !desde || !hasta) {
-        return alert("Completá todos los campos y subí el PDF base.");
-      }
-
-      document.getElementById('loader').style.display = 'block';
-      document.getElementById('downloadBtn').style.display = 'none';
-      document.getElementById('previewContainer').innerHTML = '<button id="downloadBtn">Descargar Invitación</button>';
-
-      const reader = new FileReader();
-      reader.onload = async function () {
-        const basePdfBytes = new Uint8Array(reader.result);
-        const pdfDoc = await PDFLib.PDFDocument.load(basePdfBytes);
-        const fontItalic = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
-        const [page] = pdfDoc.getPages();
-        const { width, height } = page.getSize();
-        const naranja = PDFLib.rgb(1, 0.64, 0);
-
-        function drawExtraBoldText(text, x, y, size) {
-          for (let dx = -0.6; dx <= 0.6; dx += 0.3) {
-            for (let dy = -0.6; dy <= 0.6; dy += 0.3) {
-              page.drawText(text, {
-                x: x + dx,
-                y: y + dy,
-                size: size,
-                font: fontItalic,
-                color: naranja
-              });
-            }
+      // Utilidades
+      const bold=(txt,x,y,size,extra=false)=>{
+        const step=extra?0.3:0.2,range=extra?0.6:0.4;
+        for(let dx=-range;dx<=range;dx+=step){
+          for(let dy=-range;dy<=range;dy+=step){
+            page.drawText(txt,{x:x+dx,y:y+dy,size,font,color:naranja});
           }
         }
-
-        function drawBoldText(text, x, y, size) {
-          for (let dx = -0.4; dx <= 0.4; dx += 0.2) {
-            for (let dy = -0.4; dy <= 0.4; dy += 0.2) {
-              page.drawText(text, {
-                x: x + dx,
-                y: y + dy,
-                size: size,
-                font: fontItalic,
-                color: naranja
-              });
-            }
-          }
+      };
+      const formFecha=f=>{
+        const d=new Date(f);
+        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)}`;
+      };
+      const wrap=(txt,max,font,size)=>{
+        const words=txt.split(' '),lines=[];let line='';
+        for(const w of words){
+          const test=line?`${line} ${w}`:w;
+          if(font.widthOfTextAtSize(test,size)<max){line=test;}else{if(line)lines.push(line);line=w;}
         }
-
-        function formatDateTwoDigitsYear(dateStr) {
-          const d = new Date(dateStr);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = String(d.getFullYear()).slice(-2);
-          return `${day}/${month}/${year}`;
-        }
-
-        function dividirTextoEnLineas(text, maxWidth, font, fontSize) {
-          const palabras = text.split(' ');
-          const lineas = [];
-          let lineaActual = '';
-
-          for (const palabra of palabras) {
-            const testLinea = lineaActual ? `${lineaActual} ${palabra}` : palabra;
-            const width = font.widthOfTextAtSize(testLinea, fontSize);
-            if (width < maxWidth) {
-              lineaActual = testLinea;
-            } else {
-              if (lineaActual) lineas.push(lineaActual);
-              lineaActual = palabra;
-            }
-          }
-          if (lineaActual) lineas.push(lineaActual);
-          return lineas;
-        }
-
-        let fontSizeNombre = 65;
-        const maxWidthNombre = 700;
-        let lineasNombre = dividirTextoEnLineas(nombre, maxWidthNombre, fontItalic, fontSizeNombre);
-        if (lineasNombre.length > 1) {
-          fontSizeNombre = 50;
-          lineasNombre = dividirTextoEnLineas(nombre, maxWidthNombre, fontItalic, fontSizeNombre);
-        }
-
-        const espacioEntreLineas = 10;
-        const totalAltoTexto = lineasNombre.length * (fontSizeNombre + espacioEntreLineas);
-        const yBase = height - (lineasNombre.length > 1 ? 735 : 750) + (totalAltoTexto / 2);
-
-        lineasNombre.forEach((linea, index) => {
-          const textWidth = fontItalic.widthOfTextAtSize(linea, fontSizeNombre);
-          const x = (width - textWidth) / 2;
-          const y = yBase - index * (fontSizeNombre + espacioEntreLineas);
-          drawExtraBoldText(linea, x, y, fontSizeNombre);
-        });
-
-        const fechaStr = formatDateTwoDigitsYear(fecha);
-        const textoHorario = `${fechaStr} - ${desde} A ${hasta} HS`;
-        drawBoldText(textoHorario, 296, height - 1041, 35);
-
-        const pdfBytes = await pdfDoc.save();
-        blobGenerado = new Blob([pdfBytes], { type: 'application/pdf' });
-
-        mostrarMiniatura(blobGenerado, nombre, fechaStr);
+        if(line)lines.push(line);return lines;
       };
 
-      reader.readAsArrayBuffer(archivoPDF);
+      /* Nombre (extra‑bold centrado, auto-escala) */
+      let fsNombre=65;
+      let líneas=wrap(nombre,700,font,fsNombre);
+      if(líneas.length>1){fsNombre=50;líneas=wrap(nombre,700,font,fsNombre);}
+      const gap=10,totalH=líneas.length*(fsNombre+gap),yBase=height-(líneas.length>1?735:750)+totalH/2;
+      líneas.forEach((l,i)=>{
+        const w=font.widthOfTextAtSize(l,fsNombre);
+        bold(l,(width-w)/2,yBase-i*(fsNombre+gap),fsNombre,true);
+      });
+
+      /* Fecha y horario (bold) */
+      const textoH=`${formFecha(fecha)} - ${desde} A ${hasta} HS`;
+      bold(textoH,296,height-1041,35,false);
+
+      // Guardar PDF
+      const pdfBytes=await pdfDoc.save();
+      const blob=new Blob([pdfBytes],{type:'application/pdf'});
+      mostrarMiniatura(blob,nombre,formFecha(fecha));
+
+    }catch(err){
+      console.error(err);
+      alert('Ocurrió un error generando la invitación.');
+      document.getElementById('loader').style.display='none';
     }
+  }
 
-    async function mostrarMiniatura(blob, nombreCompleto, fechaStr) {
-      const url = URL.createObjectURL(blob);
-      const loadingTask = pdfjsLib.getDocument(url);
-      try {
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 0.25 });
+  /*-------------------------------------------------
+   * Miniatura + descarga
+   *------------------------------------------------*/
+  async function mostrarMiniatura(blob,nombre,fechaStr){
+    const url=URL.createObjectURL(blob);
+    const task=pdfjsLib.getDocument(url);
+    const pdf=await task.promise;
+    const page=await pdf.getPage(1);
+    const vp=page.getViewport({scale:0.25});
 
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+    const canvas=document.createElement('canvas');
+    const ctx=canvas.getContext('2d');
+    canvas.width=vp.width;canvas.height=vp.height;
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
 
-        await page.render({ canvasContext: context, viewport }).promise;
+    const cont=document.getElementById('previewContainer');
+    cont.appendChild(canvas);
 
-        const previewContainer = document.getElementById('previewContainer');
-        previewContainer.appendChild(canvas);
+    document.getElementById('loader').style.display='none';
+    document.getElementById('formulario').style.display='none';
 
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('formulario').style.display = 'none';
-        document.getElementById('dropZone').style.display = 'none';
-
-        const downloadBtn = document.getElementById('downloadBtn');
-        downloadBtn.style.display = 'inline-block';
-        downloadBtn.onclick = () => {
-          const nombreLimpio = nombreCompleto.replace(/\s+/g, '');
-          const fechaFormateada = fechaStr.replace(/\//g, '-');
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `invitacion-${nombreLimpio}-${fechaFormateada}.pdf`;
-          a.click();
-        };
-      } catch (err) {
-        console.error("Error al generar miniatura", err);
-      }
-    }
+    const btn=document.getElementById('downloadBtn');
+    btn.style.display='inline-block';
+    btn.onclick=()=>{
+      const file=`invitacion-${nombre.replace(/\s+/g,'')}-${fechaStr.replace(/\//g,'-')}.pdf`;
+      const a=document.createElement('a');a.href=url;a.download=file;a.click();
+    };
+  }
   </script>
 </body>
 </html>
