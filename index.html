@@ -10,54 +10,55 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <style>
-    body{
-      font-family:'Segoe UI',sans-serif;
-      background:#202020;
-      color:#fff;
-      text-align:center;
-      padding:40px
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #202020;
+      color: #fff;
+      text-align: center;
+      padding: 40px;
     }
-    h2{color:#1ba3dd}
-    .card{
-      margin:20px auto;
-      max-width:400px;
-      padding:20px;
-      background:#ffffff;
-      color:#000;
-      border-radius:8px;
-      box-shadow:0 2px 6px rgba(0,0,0,.1)
+    h2 { color: #1ba3dd }
+    .card {
+      margin: 20px auto;
+      max-width: 400px;
+      padding: 20px;
+      background: #ffffff;
+      color: #000;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .1)
     }
-    input,select,button{
-      width:100%;
-      padding:10px;
-      margin-top:10px;
-      border-radius:5px;
-      border:1px solid #ccc;
-      font-size:16px;
-      box-sizing:border-box
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      box-sizing: border-box
     }
-    button{
-      background:#007bff;
-      color:#fff;
-      font-weight:bold;
-      cursor:pointer
+    button {
+      background: #007bff;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer
     }
-    button:hover{background:#0056b3}
-    #loader{display:none;margin-top:20px}
-    #previewContainer{position:relative;display:inline-block;margin-top:30px}
-    canvas{border:1px solid #ccc}
-    #downloadBtn{
-      position:absolute;top:50%;left:50%;
-      transform:translate(-50%,-50%);
-      background:#0f000573;
-      border:none;color:#fff;
-      padding:12px 24px;font-size:16px;font-weight:bold;border-radius:50px;
-      cursor:pointer;display:none;
-      animation:heartbeat 1.5s infinite
+    button:hover { background: #0056b3 }
+    #loader { display: none; margin-top: 20px }
+    #previewContainer { position: relative; display: inline-block; margin-top: 30px }
+    canvas { border: 1px solid #ccc }
+    #downloadBtn {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #0f000573;
+      border: none; color: #fff;
+      padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 50px;
+      cursor: pointer; display: none;
+      animation: heartbeat 1.5s infinite
     }
-    @keyframes heartbeat{
-      0%,100%{transform:translate(-50%,-50%) scale(1)}
-      50%{transform:translate(-50%,-50%) scale(1.1)}
+    @keyframes heartbeat {
+      0%, 100% { transform: translate(-50%, -50%) scale(1) }
+      50% { transform: translate(-50%, -50%) scale(1.1) }
     }
   </style>
 </head>
@@ -65,7 +66,6 @@
 
   <h2>Invitación de Cumpleaños</h2>
 
-  <!-- Formulario -->
   <div class="card" id="formulario">
     <select id="tipoInvitacion" required>
       <option value="" disabled selected>Tipo de invitación</option>
@@ -74,7 +74,7 @@
     </select>
 
     <input type="text" id="nombre" placeholder="Nombre del cumpleañero" required />
-    <input type="date" id="fecha" required />
+    <input type="date" id="fecha" placeholder="Fecha del evento" required />
     <select id="desde" required></select>
     <select id="hasta" required></select>
 
@@ -88,168 +88,178 @@
   </div>
 
   <script>
-  /*-------------------------------------------------
-   * Placeholder dinámico según tipo de invitación
-   *------------------------------------------------*/
-  const tipoSel = document.getElementById('tipoInvitacion');
-  const nombreInput = document.getElementById('nombre');
+    const tipoSel = document.getElementById('tipoInvitacion');
+    const nombreInput = document.getElementById('nombre');
+    const fechaInput = document.getElementById('fecha');
 
-  tipoSel.addEventListener('change', ({ target }) => {
-    if (target.value === 'varios') {
-      nombreInput.placeholder = 'Nombres de los cumpleañeros';
-    } else {
-      nombreInput.placeholder = 'Nombre del cumpleañero';
+    tipoSel.addEventListener('change', ({ target }) => {
+      nombreInput.placeholder = target.value === 'varios' ?
+        'Nombres de los cumpleañeros' : 'Nombre del cumpleañero';
+    });
+
+    // Fecha mínima = hoy local
+    const hoyLocal = new Date();
+    hoyLocal.setHours(0, 0, 0, 0);
+    fechaInput.min = hoyLocal.toISOString().split('T')[0];
+
+    // Horarios
+    const desdeSel = document.getElementById('desde');
+    const hastaSel = document.getElementById('hasta');
+
+    function genOpcionesHorario() {
+      const opts = [];
+      for (let h = 9; h < 23; h++) {
+        for (let m = 0; m < 60; m += 5) {
+          opts.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        }
+      }
+      return opts;
     }
-  });
+    const horas = genOpcionesHorario();
+    horas.forEach(h => desdeSel.add(new Option(h, h)));
 
-  /*-------------------------------------------------
-   * Configuraciones iniciales
-   *------------------------------------------------*/
-  // Bloquear fechas pasadas
-  document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
+    function strMin(hhmm) {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    }
 
-  // Generar opciones de horario (cada 5 min) y lógica “hasta” ≥ “desde” + 1 h
-  const desdeSel = document.getElementById('desde');
-  const hastaSel = document.getElementById('hasta');
+    desdeSel.addEventListener('change', () => {
+      hastaSel.innerHTML = '';
+      const minDesde = strMin(desdeSel.value) + 60;
+      horas.forEach(h => {
+        if (strMin(h) >= minDesde) hastaSel.add(new Option(h, h));
+      });
+      if (!hastaSel.options.length) {
+        const o = new Option('Sin horarios válidos', '');
+        o.disabled = o.selected = true;
+        hastaSel.add(o);
+      }
+    });
+    desdeSel.selectedIndex = 0;
+    desdeSel.dispatchEvent(new Event('change'));
 
-  function genOpcionesHorario(){
-    const opts=[];
-    for(let h=9;h<23;h++){
-      for(let m=0;m<60;m+=5){
-        opts.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    async function generarInvitacion() {
+      const tipo = tipoSel.value;
+      const nombre = nombreInput.value.trim().toUpperCase();
+      const fecha = fechaInput.value;
+      const desde = desdeSel.value;
+      const hasta = hastaSel.value;
+
+      if (!tipo || !nombre || !fecha || !desde || !hasta) {
+        alert('Completá todos los campos.');
+        return;
+      }
+
+      const urls = {
+        uno: 'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_uno.pdf',
+        varios: 'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_varios.pdf'
+      };
+      const pdfUrl = urls[tipo];
+
+      document.getElementById('loader').style.display = 'block';
+      document.getElementById('downloadBtn').style.display = 'none';
+      document.getElementById('previewContainer').innerHTML = '<button id="downloadBtn">Descargar Invitación</button>';
+
+      try {
+        const res = await fetch(pdfUrl);
+        const basePdfBytes = new Uint8Array(await res.arrayBuffer());
+
+        const pdfDoc = await PDFLib.PDFDocument.load(basePdfBytes);
+        const [page] = pdfDoc.getPages();
+        const { width, height } = page.getSize();
+        const font = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
+        const naranja = PDFLib.rgb(1, 0.64, 0);
+
+        const bold = (txt, x, y, size, extra = false) => {
+          const step = extra ? 0.3 : 0.2, range = extra ? 0.6 : 0.4;
+          for (let dx = -range; dx <= range; dx += step) {
+            for (let dy = -range; dy <= range; dy += step) {
+              page.drawText(txt, { x: x + dx, y: y + dy, size, font, color: naranja });
+            }
+          }
+        };
+
+        const formFecha = f => {
+          const [yyyy, mm, dd] = f.split('-');
+          return `${dd}/${mm}/${yyyy.slice(-2)}`;
+        };
+
+        const wrap = (txt, max, font, size) => {
+          const words = txt.split(' '), lines = [];
+          let line = '';
+          for (const w of words) {
+            const test = line ? `${line} ${w}` : w;
+            if (font.widthOfTextAtSize(test, size) < max) {
+              line = test;
+            } else {
+              if (line) lines.push(line);
+              line = w;
+            }
+          }
+          if (line) lines.push(line);
+          return lines;
+        };
+
+        // Nombre
+        let fsNombre = 65;
+        let líneas = wrap(nombre, 700, font, fsNombre);
+        if (líneas.length > 1) {
+          fsNombre = 50;
+          líneas = wrap(nombre, 700, font, fsNombre);
+        }
+        const gap = 10;
+        const totalH = líneas.length * (fsNombre + gap);
+        const yBase = height - (líneas.length > 1 ? 735 : 750) + totalH / 2;
+        líneas.forEach((l, i) => {
+          const w = font.widthOfTextAtSize(l, fsNombre);
+          bold(l, (width - w) / 2, yBase - i * (fsNombre + gap), fsNombre, true);
+        });
+
+        // Fecha y horario
+        const fechaFormateada = formFecha(fecha);
+        const textoH = `${fechaFormateada} - ${desde} A ${hasta} HS`;
+        bold(textoH, 296, height - 1041, 35, false);
+
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        mostrarMiniatura(blob, nombre, fechaFormateada);
+
+      } catch (err) {
+        console.error(err);
+        alert('Ocurrió un error generando la invitación.');
+        document.getElementById('loader').style.display = 'none';
       }
     }
-    return opts;
-  }
-  const horas = genOpcionesHorario();
-  horas.forEach(h=>desdeSel.add(new Option(h,h)));
 
-  function strMin(hhmm){const [h,m]=hhmm.split(':').map(Number);return h*60+m;}
+    async function mostrarMiniatura(blob, nombre, fechaStr) {
+      const url = URL.createObjectURL(blob);
+      const task = pdfjsLib.getDocument(url);
+      const pdf = await task.promise;
+      const page = await pdf.getPage(1);
+      const vp = page.getViewport({ scale: 0.25 });
 
-  desdeSel.addEventListener('change',()=>{
-    hastaSel.innerHTML='';
-    const minDesde=strMin(desdeSel.value)+60; // +1 h
-    horas.forEach(h=>{
-      if(strMin(h)>=minDesde) hastaSel.add(new Option(h,h));
-    });
-    if(!hastaSel.options.length){
-      const o=new Option('Sin horarios válidos','');o.disabled=o.selected=true;hastaSel.add(o);
-    }
-  });
-  desdeSel.selectedIndex=0;desdeSel.dispatchEvent(new Event('change'));
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
 
-  /*-------------------------------------------------
-   * Generar invitación
-   *------------------------------------------------*/
-  async function generarInvitacion(){
-    const tipo=tipoSel.value;
-    const nombre=nombreInput.value.trim().toUpperCase();
-    const fecha=document.getElementById('fecha').value;
-    const desde=desdeSel.value;
-    const hasta=hastaSel.value;
+      const cont = document.getElementById('previewContainer');
+      cont.appendChild(canvas);
 
-    if(!tipo||!nombre||!fecha||!desde||!hasta){
-      alert('Completá todos los campos.');return;
-    }
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('formulario').style.display = 'none';
 
-    // URLs de PDFs base RAW (raw.githubusercontent.com)
-    const urls={
-      uno:'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_uno.pdf',
-      varios:'https://raw.githubusercontent.com/Altitude-Trampoline-Park/invitacion-cumpleanos/main/assets/invitacioncumple_varios.pdf'
-    };
-    const pdfUrl=urls[tipo];
-
-    document.getElementById('loader').style.display='block';
-    document.getElementById('downloadBtn').style.display='none';
-    document.getElementById('previewContainer').innerHTML='<button id="downloadBtn">Descargar Invitación</button>';
-
-    try{
-      const res=await fetch(pdfUrl);
-      const basePdfBytes=new Uint8Array(await res.arrayBuffer());
-
-      /* ---------- Modificar PDF ---------- */
-      const pdfDoc=await PDFLib.PDFDocument.load(basePdfBytes);
-      const [page]=pdfDoc.getPages();
-      const {width,height}=page.getSize();
-      const font=await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
-      const naranja=PDFLib.rgb(1,0.64,0);
-
-      // Utilidades
-      const bold=(txt,x,y,size,extra=false)=>{
-        const step=extra?0.3:0.2,range=extra?0.6:0.4;
-        for(let dx=-range;dx<=range;dx+=step){
-          for(let dy=-range;dy<=range;dy+=step){
-            page.drawText(txt,{x:x+dx,y:y+dy,size,font,color:naranja});
-          }
-        }
+      const btn = document.getElementById('downloadBtn');
+      btn.style.display = 'inline-block';
+      btn.onclick = () => {
+        const file = `invitacion-${nombre.replace(/\s+/g, '')}-${fechaStr.replace(/\//g, '-')}.pdf`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file;
+        a.click();
       };
-      const formFecha=f=>{
-        const d=new Date(f);
-        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)}`;
-      };
-      const wrap=(txt,max,font,size)=>{
-        const words=txt.split(' '),lines=[];let line='';
-        for(const w of words){
-          const test=line?`${line} ${w}`:w;
-          if(font.widthOfTextAtSize(test,size)<max){line=test;}else{if(line)lines.push(line);line=w;}
-        }
-        if(line)lines.push(line);return lines;
-      };
-
-      /* Nombre (extra‑bold centrado, auto-escala) */
-      let fsNombre=65;
-      let líneas=wrap(nombre,700,font,fsNombre);
-      if(líneas.length>1){fsNombre=50;líneas=wrap(nombre,700,font,fsNombre);}
-      const gap=10,totalH=líneas.length*(fsNombre+gap),yBase=height-(líneas.length>1?735:750)+totalH/2;
-      líneas.forEach((l,i)=>{
-        const w=font.widthOfTextAtSize(l,fsNombre);
-        bold(l,(width-w)/2,yBase-i*(fsNombre+gap),fsNombre,true);
-      });
-
-      /* Fecha y horario (bold) */
-      const textoH=`${formFecha(fecha)} - ${desde} A ${hasta} HS`;
-      bold(textoH,296,height-1041,35,false);
-
-      // Guardar PDF
-      const pdfBytes=await pdfDoc.save();
-      const blob=new Blob([pdfBytes],{type:'application/pdf'});
-      mostrarMiniatura(blob,nombre,formFecha(fecha));
-
-    }catch(err){
-      console.error(err);
-      alert('Ocurrió un error generando la invitación.');
-      document.getElementById('loader').style.display='none';
     }
-  }
-
-  /*-------------------------------------------------
-   * Miniatura + descarga
-   *------------------------------------------------*/
-  async function mostrarMiniatura(blob,nombre,fechaStr){
-    const url=URL.createObjectURL(blob);
-    const task=pdfjsLib.getDocument(url);
-    const pdf=await task.promise;
-    const page=await pdf.getPage(1);
-    const vp=page.getViewport({scale:0.25});
-
-    const canvas=document.createElement('canvas');
-    const ctx=canvas.getContext('2d');
-    canvas.width=vp.width;canvas.height=vp.height;
-    await page.render({canvasContext:ctx,viewport:vp}).promise;
-
-    const cont=document.getElementById('previewContainer');
-    cont.appendChild(canvas);
-
-    document.getElementById('loader').style.display='none';
-    document.getElementById('formulario').style.display='none';
-
-    const btn=document.getElementById('downloadBtn');
-    btn.style.display='inline-block';
-    btn.onclick=()=>{
-      const file=`invitacion-${nombre.replace(/\s+/g,'')}-${fechaStr.replace(/\//g,'-')}.pdf`;
-      const a=document.createElement('a');a.href=url;a.download=file;a.click();
-    };
-  }
   </script>
 </body>
 </html>
