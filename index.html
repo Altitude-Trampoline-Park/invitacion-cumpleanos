@@ -168,7 +168,7 @@
         const [page] = pdfDoc.getPages();
         const { width, height } = page.getSize();
         const font = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
-        const naranja = PDFLib.rgb(1, 0.41, 0);
+        const naranja = PDFLib.rgb(1, 0.42, 0);
 
         const bold = (txt, x, y, size, extra = false) => {
           const step = extra ? 0.3 : 0.2, range = extra ? 0.6 : 0.4;
